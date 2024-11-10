@@ -1,6 +1,6 @@
 import { MongoClient, ObjectId } from 'mongodb';
-//import{ type } from '/types.ts'
-//import { isDataView } from "util/types";
+import{ PersonaModel, AmigoModel} from './types.ts'
+import {fromModelPersona,fromModelAmigo } from "./utils.ts";
 
 
 const MONGO_URL =Deno.env.get("MONGO_URL");
@@ -28,24 +28,27 @@ const handler= async(req:Request):Promise<Response> => {
   if(method==="GET"){
     if(path==="personas"){
       const name=url.searchParams.get("name")
-         if(!name){
-        return new Response ("Persona no encontrada",{status:402});
-      }
-      const personadb= await PersonaCollection.find({name}).toArray();
-      const persona= personadb.map((b) => {
-        name : b.name;
-      })
 
-      return new Response(JSON.stringify(persona),{status:404});
+      if(name){
+      const personadb= await PersonaCollection.find({name}).toArray();
+      
+      /*
+      la u es simplemente una variable que 
+      representa cada elemento (o documento) en el arreglo personadb 
+      al usar el método .map().
+      */
+      const persona=await Promise.all(personadb.map((u)=>{fromModelPersona(u,Amigoscollection)}))
+
+      return new Response(JSON.stringify(persona),{status:200});
     }
     else{
       const personadb=await PersonaCollection.find().toArray();
-      const persona=personadb.map(((b)=>{
-        //fromModelPersona
-      }));
+      const persona= await Promise.all(personadb.map((u)=>{fromModelPersona(u,Amigoscollection)}))
 
-      return new Response(JSON.stringify(persona),{status:404});
+      return new Response(JSON.stringify(persona),{status:200});
     }
+  }
+
   }
   else if(method==="POST"){
     if(path==="personas"){
