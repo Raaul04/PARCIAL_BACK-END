@@ -1,6 +1,7 @@
 import { MongoClient, ObjectId } from 'mongodb';
-import{ PersonaModel, AmigoModel} from './types.ts'
-import {fromModelPersona,fromModelAmigo } from "./utils.ts";
+import  type { PersonaModel} from './types.ts'
+import {fromModelPersona, checkFriendsExist } from "./utils.ts";
+
 
 
 const MONGO_URL =Deno.env.get("MONGO_URL");
@@ -15,9 +16,7 @@ await client.connect();
 console.log('Connected successfully to server');
 
 const db = client.db("baseDatos");
-
-const PersonaCollection = db.collection('persona');
-const Amigoscollection = db.collection('amigo');
+const userCollection = db.collection<PersonaModel>("users");
 
 
 const handler= async(req:Request):Promise<Response> => {
@@ -29,26 +28,33 @@ const handler= async(req:Request):Promise<Response> => {
     if(path==="personas"){
       const name=url.searchParams.get("name")
 
-      if(name){
-      const personadb= await PersonaCollection.find({name}).toArray();
+      if(!name){return new Response("No hay nombre",{status:400})}
+
+      const personadb= await userCollection.find({name}).toArray();
       
       /*
       la u es simplemente una variable que 
       representa cada elemento (o documento) en el arreglo personadb 
       al usar el método .map().
       */
-      const persona=await Promise.all(personadb.map((u)=>{fromModelPersona(u,Amigoscollection)}))
+      const persona=await Promise.all(personadb.map((u)=>{fromModelPersona(u,userCollection)}))
 
-      return new Response(JSON.stringify(persona),{status:200});
-    }
-    else{
-      const personadb=await PersonaCollection.find().toArray();
-      const persona= await Promise.all(personadb.map((u)=>{fromModelPersona(u,Amigoscollection)}))
+      return new Response(JSON.stringify(persona),{status:200});  
+    } else if(path==="persona"){
 
-      return new Response(JSON.stringify(persona),{status:200});
-    }
-  }
+        const email=url.searchParams.get("email");
+        if(!email){return new Response("No hay email",{status:400})}
 
+        const userDb= await userCollection.findOne({
+          email,
+        })
+
+        if(!userDb){return new Response("No se encontro el usuario",{status:404})}
+    
+
+        const user= await fromModelPersona(userDb,userCollection);
+        return new Response(JSON.stringify(user),{status:200});
+      }
   }
   else if(method==="POST"){
     if(path==="personas"){

@@ -1,18 +1,18 @@
-import { Collection } from "mongodb"
-import { Persona, Amigo, PersonaModel, AmigoModel } from "./types.ts";
+import { Collection , ObjectId} from "mongodb"
+import { Persona,PersonaModel } from "./types.ts";
 
 
 export const fromModelPersona= async (
     //Parametros
     personaDB:PersonaModel,//Documento del mongoDB
-    amigosCollecion:Collection<AmigoModel> // La coleccion de amigoModels en Mongo
+    amigosCollecion:Collection<PersonaModel > // La coleccion de amigoModels en Mongo
+    
 ):Promise<Persona> => {
     // 1. Busca los documentos de los amigos utilizando sus IDs en personaDB.amigos
     const amigos =await amigosCollecion
     .find({_id:{$in:personaDB.amigos}})
     .toArray();
-    //2. Transformamos De AmigoModel a Amigo normal usando fromModelAmigo
-    const amigoTransformado= amigos.map((amigoDB)=>fromModelAmigo(amigoDB)); 
+
     
       // 3. Crea y retorna el objeto Persona con todos los campos necesarios
       return {
@@ -20,7 +20,7 @@ export const fromModelPersona= async (
         name:personaDB.name,
         email:personaDB.email,
         telefono:personaDB.telefono,
-        amigos:amigoTransformado,
+        amigos:fromModelAmigo(amigos),
       };
       /*
         Es asincrónica (async) porque necesita realizar una búsqueda en la base de datos 
@@ -32,12 +32,28 @@ export const fromModelPersona= async (
       */
 };
 
-export const fromModelAmigo=(amigoDB:AmigoModel): Amigo=> ({
+export const fromModelAmigo=(amigoDB:PersonaModel[])=> {
+      return amigoDB.map((friend) => ({
+        id:friend._id!.toString(),
+        name:friend.name,
+        email:friend.email,
+        telefono:friend.telefono,
+      }));
+};
 
-        id:amigoDB._id!.toString(),
-        name:amigoDB.name,
-        email:amigoDB.email,
-        telefono:amigoDB.telefono,
+/*
+    La función fromModelAmigo recibe un arreglo de documentos de amigos (amigoDB) 
+    y retorna un arreglo de objetos Amigo. 
+    Para cada documento de amigo, se crea un objeto Amigo con los campos id, name, email y telefono.
+*/
 
 
-})
+export const checkFriendsExist = async (
+  friends: string[],
+  PersonCollection: Collection<PersonaModel>,
+) => {
+  const friendsDB = await PersonCollection.find({
+    _id: { $in: friends.map((id) => new ObjectId(id)) },
+  }).toArray();
+  return friendsDB.length === friends.length;
+};
